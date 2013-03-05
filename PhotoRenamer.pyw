@@ -1,15 +1,21 @@
 #!/usr/bin/env python
-'''
-Places images from digital camera in folders according to their EXIF creation date.
-Also tries it's best to put video files in respective folders as well (specifically recognizes Nokia 5800XM videos)
-'''
+"""
+Places images from digital camera in folders
+according to their EXIF creation date.
+Also tries it's best to put video files in respective folders as well
+(specifically recognizes Nokia 5800XM videos)
+"""
 import os, time
 import wx
 from PIL import Image
 
 
 class FileListDropTarget(wx.FileDropTarget):
-    """ This object implements Drop Target functionality for Files droped to ListBox (and in fact any subclass of wx.ItemContainer"""
+    """ This object implements Drop Target functionality for Files droped to ListBox
+
+    (and in fact any subclass of wx.ItemContainer
+
+    """
     def __init__(self, obj):
         """ Initialize the Drop Target, passing in the Object Reference to
         indicate what should receive the dropped files """
@@ -24,7 +30,11 @@ class FileListDropTarget(wx.FileDropTarget):
         self.obj.AppendItems(filenames)
 
 class GatherFilesPanel(wx.Panel):
-    '''Panel that displays a list of files and allows adding and removing files or groups of files'''
+    """Panel that displays a list of files
+
+    and allows adding and removing files or groups of files
+
+    """
     def __init__(self, parent, id, wildcard="All files (*.*)|*.*"):
         wx.Panel.__init__(self, parent, id)
         
@@ -44,7 +54,7 @@ class GatherFilesPanel(wx.Panel):
         vsizer.Add(btnsizer, 0, wx.GROW)
         
         self.filelist= wx.ListBox(self, -1, size = (300,200), choices = [], 
-                            style = wx.LB_EXTENDED|wx.LB_HSCROLL|wx.LB_NEEDED_SB|wx.LB_SORT)
+                style = wx.LB_EXTENDED|wx.LB_HSCROLL|wx.LB_NEEDED_SB|wx.LB_SORT)
         
         vsizer.Add(self.filelist, 1, wx.GROW)
         
@@ -57,7 +67,9 @@ class GatherFilesPanel(wx.Panel):
         self.filelist.SetDropTarget(droptarget)
         
     def OnAddFiles(self, evt):
-        fileDlg = wx.FileDialog(self, 'Choose files', style=wx.OPEN|wx.FD_MULTIPLE|wx.FD_CHANGE_DIR, wildcard=self.wildcard)
+        fileDlg = wx.FileDialog(self, 'Choose files',
+                                style=wx.OPEN|wx.FD_MULTIPLE|wx.FD_CHANGE_DIR,
+                                wildcard=self.wildcard)
         if fileDlg.ShowModal() == wx.ID_OK:
             self.filelist.AppendItems(fileDlg.GetPaths())
             ## self.fileslist.Set(self.filenames)
@@ -89,7 +101,8 @@ class RenamerFrame(wx.Frame):
         self.filelist = GatherFilesPanel(panel, -1)
         ## self.filelist.SetWildcard = 'jpeg, mp4, avi, mov'
         sizer.Add(self.filelist, 1, wx.GROW)
-        self.rnmbtn = wx.Button(panel, -1, 'Rename', style = wx.ID_OPEN|wx.BU_EXACTFIT|wx.BU_LEFT|wx.BU_RIGHT)
+        self.rnmbtn = wx.Button(panel, -1, 'Rename',
+                       style = wx.ID_OPEN|wx.BU_EXACTFIT|wx.BU_LEFT|wx.BU_RIGHT)
         self.Bind(wx.EVT_BUTTON, self.OnRename, self.rnmbtn)
         sizer.Add(self.rnmbtn, 0, wx.GROW)
         panel.SetSizer(sizer)
@@ -112,11 +125,13 @@ class RenamerFrame(wx.Frame):
         filenames.reverse()
         for index, filename in enumerate(filenames):
             dir, name = os.path.split(filename)
-            date = self.GetDate(filename)
-            if date:
-                year, month, day = date
-                newdirname = os.path.join(dir, '%s-%s-%s'%(year, month, day))
-                newfilename = os.path.join(newdirname, name)
+            timestamp = self.GetDate(filename)
+            if timestamp:
+##                year, month, day = date
+##                newdirname = os.path.join(dir, '%s-%s-%s'%(year, month, day))
+                datestring = "%s-%s-%s %s.%s.%s"%tuple(timestamp)
+                newname = datestring + os.path.splitext(name)[1]
+                newfilename = os.path.join(dir, newname)
                 try:
                     os.renames(filename, newfilename)
                     self.filelist.RemoveFile(len(filenames)-index-1)
@@ -134,40 +149,38 @@ class RenamerFrame(wx.Frame):
             img = Image.open(filename)
             exf = img._getexif()
             if exf:
-                datetime = exf.get(36867, None) #according to PILExifTags.TAGS
-                if datetime:
-                    year, month, day = datetime[:4], datetime[5:7], datetime[8:10]
+                datetimestr = exf.get(36867, None) #according to PILExifTags.TAGS
+                if datetimestr:
+                   datetimelist = []
+                   for item in datetimestr.split():
+                       datetimelist.extend(item.split(':'))
                 else:
-                    filedate = self.GetFileMDate(filename)
-                    if filedate:
-                        year, month, day = filedate
-                    else:
-                        return None
+                    datetimelist = self.GetFileMDate(filename)
             else:
-                filedate = self.GetFileMDate(filename)
-                if filedate:
-                    year, month, day = filedate
-                else:
-                    return None
+                datetimelist = self.GetFileMDate(filename)
         elif ext.lower() == 'mp4' and name.isdigit() and len(name) == 11:
-            # assume it is a Nokia 5800XM video file with the name being DDMMYYYXXX
-            year, month, day = name[4:8], name[2:4], name[:2]
+            # assume it is a Nokia 5800XM video file
+            # with the name being YYYYMMDXXX
+            datetimelist = [name[:4], name[4:6], name[6:8], '0', '0', '0']
         else:
-            # simply take the date the file was modified (not created!), possibly incorrect
-            filedate = self.GetFileMDate(filename)
-            if filedate:
-                year, month, day = filedate
-            else:
-                return None
-        return year, month, day
-        
+            # simply take the date the file was modified (not created!),
+            # possibly incorrect
+            datetimelist = self.GetFileMDate(filename)
+        return datetimelist
+
+    def GetImageExifDate(self, filename):
+        pass
+
+    def GetMP4TagDate(self, filename):
+        pass
+    
     def GetFileMDate(self, filename):
         try:
             filetime = os.path.getmtime(filename)
         except OSError:
             filetime = None
         if filetime:
-            datestr = time.strftime('%Y %m %d', time.gmtime(filetime))
+            datestr = time.strftime('%Y %m %d %H %M %S%', time.gmtime(filetime))
             filedate = datestr.split()
         return filedate
 
