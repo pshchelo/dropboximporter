@@ -7,8 +7,7 @@ Also tries it's best to put video files in respective folders as well
 """
 import os, time
 import wx
-from PIL import Image
-
+import kaa.metadata
 
 class FileListDropTarget(wx.FileDropTarget):
     """ This object implements Drop Target functionality for Files droped to ListBox
@@ -125,11 +124,9 @@ class RenamerFrame(wx.Frame):
         filenames.reverse()
         for index, filename in enumerate(filenames):
             dir, name = os.path.split(filename)
-            timestamp = self.GetDate(filename)
-            if timestamp:
-##                year, month, day = date
-##                newdirname = os.path.join(dir, '%s-%s-%s'%(year, month, day))
-                datestring = "%s-%s-%s %s.%s.%s"%tuple(timestamp)
+            filetime = self.GetTime(filename)
+            if filetime:
+                datestring = time.strftime("%Y-%m-%d %H:%M:%S", filetime)
                 newname = datestring + os.path.splitext(name)[1]
                 newfilename = os.path.join(dir, newname)
                 try:
@@ -141,50 +138,19 @@ class RenamerFrame(wx.Frame):
                 mesg.append(filename)
         return mesg
         
-    def GetDate(self,filename):
-        path, fullname = os.path.split(filename)
-        name, ext = os.path.splitext(fullname)
-        ext = ext[1:]
-        if ext.lower() in ('jpg', 'jpeg'):
-            img = Image.open(filename)
-            exf = img._getexif()
-            if exf:
-                datetimestr = exf.get(36867, None) #according to PILExifTags.TAGS
-                if datetimestr:
-                   datetimelist = []
-                   for item in datetimestr.split():
-                       datetimelist.extend(item.split(':'))
-                else:
-                    datetimelist = self.GetFileMDate(filename)
-            else:
-                datetimelist = self.GetFileMDate(filename)
-        elif ext.lower() == 'mp4' and name.isdigit() and len(name) == 11:
-            # assume it is a Nokia 5800XM video file
-            # with the name being YYYYMMDXXX
-            datetimelist = [name[:4], name[4:6], name[6:8], '0', '0', '0']
+    def GetTime(self,filename):
+        info = kaa.metadata.parse(filename)
+        filedate = info.get('timestamp')
+        if filedate:
+            return time.localtime(filedate)
         else:
-            # simply take the date the file was modified (not created!),
-            # possibly incorrect
-            datetimelist = self.GetFileMDate(filename)
-        return datetimelist
+            try:
+                mtime = os.path.getmtime(filename)
+            except OSError:
+                return None
+            return time.localtime(mtime)
 
-    def GetImageExifDate(self, filename):
-        pass
-
-    def GetMP4TagDate(self, filename):
-        pass
-    
-    def GetFileMDate(self, filename):
-        try:
-            filetime = os.path.getmtime(filename)
-        except OSError:
-            filetime = None
-        if filetime:
-            datestr = time.strftime('%Y %m %d %H %M %S%', time.gmtime(filetime))
-            filedate = datestr.split()
-        return filedate
-
-app = wx.PySimpleApp()
+app = wx.App()
 frame = RenamerFrame(None, -1)
 frame.Show()
 app.MainLoop()
