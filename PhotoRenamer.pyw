@@ -126,7 +126,7 @@ class RenamerFrame(wx.Frame):
             dir, name = os.path.split(filename)
             filetime = self.GetTime(filename)
             if filetime:
-                datestring = time.strftime("%Y-%m-%d %H:%M:%S", filetime)
+                datestring = time.strftime("%Y-%m-%d %H.%M.%S", filetime)
                 newname = datestring + os.path.splitext(name)[1]
                 newfilename = os.path.join(dir, newname)
                 try:
