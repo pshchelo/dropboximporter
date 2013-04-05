@@ -1,14 +1,26 @@
 #!/usr/bin/env python
 """
-Places images from digital camera in folders
-according to their EXIF creation date.
-Also tries it's best to put video files in respective folders as well
-(specifically recognizes Nokia 5800XM videos)
+Renames images and videos from digital camera
+according to their EXIF (or other tag) creation date.
+If such info is abscent,it uses file creation date.
+
+Rename scheme is the same as Dropbox Camera Upload feature uses:
+    YYYY-MM-DD hh.mm.ss
+
+Depends on `ExifTool by Phil Harvey 
+<http://www.sno.phy.queensu.ca/~phil/exiftool/>`_
+
+You shoud have ``exiftool`` executable somewhere in the path.
+
+
+As I have never seen AVI files from cameras having metadata
+with creation time, this combination is untested/unsupported
+
 """
+
 import sys
-import os, time
+import os, time, subprocess, calendar
 import wx
-import kaa.metadata
 
 class FileListDropTarget(wx.FileDropTarget):
     """ This object implements Drop Target functionality for Files droped to ListBox
@@ -140,16 +152,24 @@ class RenamerFrame(wx.Frame):
         return mesg
         
     def GetTime(self,filename):
-        info = kaa.metadata.parse(filename)
-        filedate = info.get('timestamp')
-        if filedate:
-            return time.localtime(filedate)
-        else:
+        exiftool = ['exiftool', '-CreateDate', filename]
+        exiftoolout = subprocess.check_output(exiftool)
+        datestr = exiftoolout.strip().split(" : ")[1]
+        try:
+            createtime = time.strptime(datestr, '%Y:%m:%d %H:%M:%S')
+        except ValueError:
             try:
                 mtime = os.path.getmtime(filename)
             except OSError:
                 return None
             return time.localtime(mtime)
+        else:
+            # convert from UTC to local time
+            # as MP4 tag stores creation time in UTC
+            if os.path.splitext(filename)[1] in ('3gp','mov','mp4'):
+                return time.localtime(calendar.timegm(createtime))
+            else: # EXIF tag stores local time
+                return createtime
 
 app = wx.App()
 frame = RenamerFrame(None, -1, sys.argv[1:])
