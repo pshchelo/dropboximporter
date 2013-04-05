@@ -5,6 +5,7 @@ according to their EXIF creation date.
 Also tries it's best to put video files in respective folders as well
 (specifically recognizes Nokia 5800XM videos)
 """
+import sys
 import os, time
 import wx
 import kaa.metadata
@@ -34,7 +35,7 @@ class GatherFilesPanel(wx.Panel):
     and allows adding and removing files or groups of files
 
     """
-    def __init__(self, parent, id, wildcard="All files (*.*)|*.*"):
+    def __init__(self, parent, id, filenames, wildcard="All files (*.*)|*.*"):
         wx.Panel.__init__(self, parent, id)
         
         self.wildcard = wildcard
@@ -52,7 +53,7 @@ class GatherFilesPanel(wx.Panel):
         
         vsizer.Add(btnsizer, 0, wx.GROW)
         
-        self.filelist= wx.ListBox(self, -1, size = (300,200), choices = [], 
+        self.filelist= wx.ListBox(self, -1, size = (300,200), choices = filenames, 
                 style = wx.LB_EXTENDED|wx.LB_HSCROLL|wx.LB_NEEDED_SB|wx.LB_SORT)
         
         vsizer.Add(self.filelist, 1, wx.GROW)
@@ -93,11 +94,11 @@ class GatherFilesPanel(wx.Panel):
         self.wildcard = wildcard
         
 class RenamerFrame(wx.Frame):
-    def __init__(self, parent, id, title='Rename Camera Files'):
+    def __init__(self, parent, id, filenames, title='Rename Camera Files'):
         wx.Frame.__init__(self, parent, id, title)
         panel = wx.Panel(self, -1)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.filelist = GatherFilesPanel(panel, -1)
+        self.filelist = GatherFilesPanel(panel, -1, filenames)
         ## self.filelist.SetWildcard = 'jpeg, mp4, avi, mov'
         sizer.Add(self.filelist, 1, wx.GROW)
         self.rnmbtn = wx.Button(panel, -1, 'Rename',
@@ -151,6 +152,6 @@ class RenamerFrame(wx.Frame):
             return time.localtime(mtime)
 
 app = wx.App()
-frame = RenamerFrame(None, -1)
+frame = RenamerFrame(None, -1, sys.argv[1:])
 frame.Show()
 app.MainLoop()
