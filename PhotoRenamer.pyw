@@ -154,15 +154,13 @@ class RenamerFrame(wx.Frame):
     def GetTime(self,filename):
         exiftool = ['exiftool', '-CreateDate', filename]
         exiftoolout = subprocess.check_output(exiftool)
+        if not exiftoolout:  # if no "Create Date" meta-tag present
+            return get_modif_time(filename)
         datestr = exiftoolout.strip().split(" : ")[1]
         try:
             createtime = time.strptime(datestr, '%Y:%m:%d %H:%M:%S')
-        except ValueError:
-            try:
-                mtime = os.path.getmtime(filename)
-            except OSError:
-                return None
-            return time.localtime(mtime)
+        except ValueError:  # if "Create Date" tag is malformed
+            return get_modif_time(filename)
         else:
             # convert from UTC to local time
             # as MP4 tag stores creation time in UTC
@@ -170,6 +168,13 @@ class RenamerFrame(wx.Frame):
                 return time.localtime(calendar.timegm(createtime))
             else: # EXIF tag stores local time
                 return createtime
+
+def get_modif_time(filename):
+    try:
+        mtime = os.path.getmtime(filename)
+        return time.localtime(mtime)
+    except OSError:
+        return None
 
 app = wx.App()
 frame = RenamerFrame(None, -1, sys.argv[1:])
