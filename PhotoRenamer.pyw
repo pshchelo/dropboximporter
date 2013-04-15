@@ -25,6 +25,8 @@ dateexifkey = [key for (key, value) in ExifTags.TAGS.items()
                if value == 'DateTimeOriginal'][0]
 FMT = "%Y-%m-%d %H.%M.%S"
 
+VIDEOFILES = ['.mp4', '.3gp', '.mov', '.mkv', '.webm', '.avi', '.ogm', '.ogv']
+IMAGEFILES = ['.jpg', '.jpeg']
 
 class FileListDropTarget(wx.FileDropTarget):
     """ This object implements Drop Target functionality
@@ -179,9 +181,9 @@ class RenamerFrame(wx.Frame):
 def get_time(filename):
     """Get file date, from metadata or file system."""
     ext = os.path.splitext(filename)[1]
-    if ext.lower() in ('jpeg', 'jpg'):
+    if ext.lower() in IMAGEFILES:
         return get_exif_time(filename)
-    elif ext.lower() in ('mp4', '3gp', 'mov', 'avi'):
+    elif ext.lower() in VIDEOFILES:
         return get_video_time(filename)
     else:
         return get_file_time(filename)
@@ -201,6 +203,7 @@ def get_exif_time(filename):
 def get_video_time(filename):
     mdata = enzyme.parse(filename)
     tmepoch = mdata.timestamp
+    # here is the place where too old (erroneous) date is not supported
     if tmepoch and tmepoch > 0:
         return time.ctime(mdata.timestamp)
     else:
