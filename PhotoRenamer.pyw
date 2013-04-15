@@ -1,14 +1,24 @@
 #!/usr/bin/env python
 """
-Places images from digital camera in folders
-according to their EXIF creation date.
-Also tries it's best to put video files in respective folders as well
-(specifically recognizes Nokia 5800XM videos)
+Rename images as Dropbox "Camera Upload" feature does.
+
+File name format is "year-month-day hours.minutes.seconds".
+Tries to extract creation date from EXIF or video metadata,
+if not available uses file modification time from file system.
+
+Does not support video metadata earlier than Epoch time 0
+(earlier than 1970-01-01 00:00:00 UTC).
+
+
 """
 import sys
 import os, time
+from PIL import Image
+from PIL import ExifTags
+import enzyme
+
 import wx
-import kaa.metadata
+
 
 class FileListDropTarget(wx.FileDropTarget):
     """ This object implements Drop Target functionality for Files droped to ListBox
@@ -125,7 +135,7 @@ class RenamerFrame(wx.Frame):
         filenames.reverse()
         for index, filename in enumerate(filenames):
             dir, name = os.path.split(filename)
-            filetime = self.GetTime(filename)
+            filetime = get_time(filename)
             if filetime:
                 datestring = time.strftime("%Y-%m-%d %H.%M.%S", filetime)
                 newname = datestring + os.path.splitext(name)[1]
@@ -138,18 +148,46 @@ class RenamerFrame(wx.Frame):
             else:
                 mesg.append(filename)
         return mesg
-        
-    def GetTime(self,filename):
-        info = kaa.metadata.parse(filename)
-        filedate = info.get('timestamp')
-        if filedate:
-            return time.localtime(filedate)
-        else:
-            try:
-                mtime = os.path.getmtime(filename)
-            except OSError:
-                return None
-            return time.localtime(mtime)
+
+
+def get_time(filename):
+    """Get file date, from metadata or file system."""
+    ext = os.path.splitext(filename)[1]
+    if ext.lower() in ('jpeg', 'jpg'):
+        return get_exif_time(filename)
+    elif ext.lower() in ('mp4', '3gp', 'mov', 'avi'):
+        return get_video_time(filename)
+    else:
+        return get_file_time(filename)
+
+
+def get_exif_time(filename):
+    """Get time from EXIF metadata."""
+    img = Image.open(filename)
+    exf = img._getexif()
+    if exf:
+        timestr = exf.get(36867, None)  # according to PILExifTags.TAGS
+        if timestr:
+            return time.strptime(timestr, "%Y:%m:%d %H:%M:%S")
+    return get_file_time()
+
+
+def get_video_time(filename):
+    mdata = enzyme.parse(filename)
+    tmepoch = mdata.timestamp
+    if tmepoch and tmepoch > 0:
+        return time.ctime(mdata.timestamp)
+    else:
+        return get_file_time(filename)
+
+
+def get_file_time(filename):
+    try:
+        mtime = os.path.getmtime(filename)
+    except OSError:
+        return None
+    return time.localtime(mtime)
+
 
 app = wx.App()
 frame = RenamerFrame(None, -1, sys.argv[1:])
