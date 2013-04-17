@@ -1,29 +1,33 @@
 #!/usr/bin/env python
 """
-Renames images and videos from digital camera
-according to their EXIF (or other tag) creation date.
-If such info is abscent,it uses file creation date.
+Rename images as Dropbox "Camera Upload" feature does.
 
-Rename scheme is the same as Dropbox Camera Upload feature uses:
-    YYYY-MM-DD hh.mm.ss
+File name format is "year-month-day hours.minutes.seconds".
+Tries to extract creation date from EXIF or video metadata,
+if not available uses file modification time from file system.
 
-Depends on `ExifTool by Phil Harvey.
-<http://www.sno.phy.queensu.ca/~phil/exiftool/>`_
+Does not support video metadata earlier than Epoch time 0
+(earlier than 1970-01-01 00:00:00 UTC).
 
-You shoud have ``exiftool`` executable somewhere in the path.
-
-As I have never seen AVI files from cameras having metadata
-with creation time, this combination is untested/unsupported.
 
 """
-
 import sys
 import os
 import time
-import subprocess
-import calendar
+
+from PIL import Image
+from PIL import ExifTags
+import enzyme
 
 import wx
+
+DATEEXIFKEY = [key for (key, value) in ExifTags.TAGS.items()
+               if value == 'DateTimeOriginal'][0]
+FMT = "%Y-%m-%d %H.%M.%S"
+
+VIDEOFILES = ['.mp4', '.3gp', '.mov', '.mkv', '.webm', '.avi', '.ogm', '.ogv']
+IMAGEFILES = ['.jpg', '.jpeg']
+
 
 class FileListDropTarget(wx.FileDropTarget):
     """ This object implements Drop Target functionality
@@ -61,20 +65,29 @@ class GatherFilesPanel(wx.Panel):
         btnsizer = wx.BoxSizer(wx.HORIZONTAL)
 
         addfilebtn = wx.Button(self, -1, 'Add files',
-                               style=wx.ID_OPEN | wx.BU_EXACTFIT | wx.BU_LEFT | wx.BU_RIGHT)
+                               style=wx.ID_OPEN |
+                               wx.BU_EXACTFIT |
+                               wx.BU_LEFT |
+                               wx.BU_RIGHT)
         self.Bind(wx.EVT_BUTTON, self.OnAddFiles, addfilebtn)
         btnsizer.Add(addfilebtn, 1, wx.GROW)
 
         rmfilebtn = wx.Button(self, -1, 'Remove files',
-                              style=wx.ID_CLOSE | wx.BU_EXACTFIT | wx.BU_LEFT | wx.BU_RIGHT)
+                              style=wx.ID_CLOSE |
+                              wx.BU_EXACTFIT |
+                              wx.BU_LEFT |
+                              wx.BU_RIGHT)
         self.Bind(wx.EVT_BUTTON, self.OnRmFiles, rmfilebtn)
         btnsizer.Add(rmfilebtn, 1, wx.GROW)
 
         vsizer.Add(btnsizer, 0, wx.GROW)
 
-        self.filelist = wx.ListBox(self, -1,
-                                   size=(300, 200), choices=filenames,
-                                   style=wx.LB_EXTENDED | wx.LB_HSCROLL | wx.LB_NEEDED_SB | wx.LB_SORT)
+        self.filelist = wx.ListBox(self, -1, size=(300, 200),
+                                   choices=filenames,
+                                   style=wx.LB_EXTENDED |
+                                   wx.LB_HSCROLL |
+                                   wx.LB_NEEDED_SB |
+                                   wx.LB_SORT)
 
         vsizer.Add(self.filelist, 1, wx.GROW)
 
@@ -88,7 +101,9 @@ class GatherFilesPanel(wx.Panel):
 
     def OnAddFiles(self, evt):
         fileDlg = wx.FileDialog(self, 'Choose files',
-                                style=wx.OPEN | wx.FD_MULTIPLE | wx.FD_CHANGE_DIR,
+                                style=wx.OPEN |
+                                wx.FD_MULTIPLE |
+                                wx.FD_CHANGE_DIR,
                                 wildcard=self.wildcard)
         if fileDlg.ShowModal() == wx.ID_OK:
             self.filelist.AppendItems(fileDlg.GetPaths())
@@ -123,7 +138,10 @@ class RenamerFrame(wx.Frame):
         ## self.filelist.SetWildcard = 'jpeg, mp4, avi, mov'
         sizer.Add(self.filelist, 1, wx.GROW)
         self.rnmbtn = wx.Button(panel, -1, 'Rename',
-                                style=wx.ID_OPEN | wx.BU_EXACTFIT | wx.BU_LEFT | wx.BU_RIGHT)
+                                style=wx.ID_OPEN |
+                                wx.BU_EXACTFIT |
+                                wx.BU_LEFT |
+                                wx.BU_RIGHT)
         self.Bind(wx.EVT_BUTTON, self.OnRename, self.rnmbtn)
         sizer.Add(self.rnmbtn, 0, wx.GROW)
         panel.SetSizer(sizer)
@@ -146,9 +164,9 @@ class RenamerFrame(wx.Frame):
         filenames.reverse()
         for index, filename in enumerate(filenames):
             dir, name = os.path.split(filename)
-            filetime = self.GetTime(filename)
+            filetime = get_time(filename)
             if filetime:
-                datestring = time.strftime("%Y-%m-%d %H.%M.%S", filetime)
+                datestring = time.strftime(FMT, filetime)
                 newname = datestring + os.path.splitext(name)[1]
                 newfilename = os.path.join(dir, newname)
                 try:
@@ -160,31 +178,46 @@ class RenamerFrame(wx.Frame):
                 mesg.append(filename)
         return mesg
 
-    def GetTime(self, filename):
-        exiftool = ['exiftool', '-CreateDate', filename]
-        exiftoolout = subprocess.check_output(exiftool)
-        if not exiftoolout:  # if no "Create Date" meta-tag present
-            return get_modif_time(filename)
-        datestr = exiftoolout.strip().split(" : ")[1]
-        try:
-            createtime = time.strptime(datestr, '%Y:%m:%d %H:%M:%S')
-        except ValueError:  # if "Create Date" tag is malformed
-            return get_modif_time(filename)
-        else:
-            # convert from UTC to local time
-            # as MP4 tag stores creation time in UTC
-            if os.path.splitext(filename)[1] in ('3gp', 'mov', 'mp4'):
-                return time.localtime(calendar.timegm(createtime))
-            else:  # EXIF tag stores local time
-                return createtime
+
+def get_time(filename):
+    """Get file date, from metadata or file system."""
+    ext = os.path.splitext(filename)[1]
+    if ext.lower() in IMAGEFILES:
+        return get_exif_time(filename)
+    elif ext.lower() in VIDEOFILES:
+        return get_video_time(filename)
+    else:
+        return get_file_time(filename)
 
 
-def get_modif_time(filename):
+def get_exif_time(filename):
+    """Get time from EXIF metadata."""
+    img = Image.open(filename)
+    exf = img._getexif()
+    if exf:
+        timestr = exf.get(DATEEXIFKEY, None)
+        if timestr:
+            return time.strptime(timestr, "%Y:%m:%d %H:%M:%S")
+    return get_file_time(filename)
+
+
+def get_video_time(filename):
+    mdata = enzyme.parse(filename)
+    tmepoch = mdata.timestamp
+    # here is the place where too old (erroneous) date is not supported
+    if tmepoch and tmepoch > 0:
+        return time.ctime(mdata.timestamp)
+    else:
+        return get_file_time(filename)
+
+
+def get_file_time(filename):
     try:
         mtime = os.path.getmtime(filename)
-        return time.localtime(mtime)
     except OSError:
         return None
+    return time.localtime(mtime)
+
 
 app = wx.App()
 frame = RenamerFrame(None, -1, sys.argv[1:])
