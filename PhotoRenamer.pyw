@@ -202,7 +202,10 @@ def get_exif_time(filename):
 
 
 def get_video_time(filename):
-    mdata = enzyme.parse(filename)
+    try:
+        mdata = enzyme.parse(filename)
+    except enzyme.exceptions.NoParserError:
+        return get_file_time(filename)
     tmepoch = mdata.timestamp
     # here is the place where too old (erroneous) date is not supported
     if tmepoch and tmepoch > 0:
