@@ -4,11 +4,12 @@
 """
 import os
 import sys
-import time
 try:
     from PySide import QtGui
 except:
     from PyQt4 import QtGui
+
+import dropboxrename
 
 
 class DropboxRenamerWindow(QtGui.QWidget):
@@ -77,8 +78,24 @@ class DropboxRenamerWindow(QtGui.QWidget):
         pass
 
     def OnRenameFiles(self):
-        pass
-
+        for index in range(self.filelist.count() - 1, -1, -1):
+            filename = self.filelist.item(index).text()
+            status = dropboxrename.rename(filename)
+            if not status:
+                self.filelist.takeItem(index)
+        if self.filelist.count() > 0:
+            icon = QtGui.QMessageBox.Warning
+            title = "Warning"
+            text = 'Could not rename some files!'
+            infotext = 'Check files remained in the list'
+        else:
+            icon = QtGui.QMessageBox.Information
+            title = "Note"
+            text = 'Processing complete.'
+            infotext = 'No errors occured.'
+        mesg = QtGui.QMessageBox(icon, title, text)
+        mesg.setInformativeText(infotext)
+        mesg.exec_()
 
 app = QtGui.QApplication(sys.argv)
 window = DropboxRenamerWindow()
