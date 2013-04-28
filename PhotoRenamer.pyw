@@ -12,21 +12,9 @@ Does not support video metadata earlier than Epoch time 0
 
 """
 import sys
-import os
-import time
-
-from PIL import Image
-from PIL import ExifTags
-import enzyme
-
 import wx
 
-DATEEXIFKEY = [key for (key, value) in ExifTags.TAGS.items()
-               if value == 'DateTimeOriginal'][0]
-FMT = "%Y-%m-%d %H.%M.%S"
-
-VIDEOFILES = ['.mp4', '.3gp', '.mov', '.mkv', '.webm', '.avi', '.ogm', '.ogv']
-IMAGEFILES = ['.jpg', '.jpeg']
+import dropboxrename
 
 
 class FileListDropTarget(wx.FileDropTarget):
@@ -149,78 +137,20 @@ class RenamerFrame(wx.Frame):
         self.Fit()
 
     def OnRename(self, evt):
-        mesg = self.RenameFiles(self.filelist.GetFiles())
-        if mesg:
+        filenames = self.filelist.GetFiles()
+        filenames.reverse()
+        for index, filename in enumerate(filenames):
+            status = dropboxrename.rename(filename)
+            if not status:
+                self.filelist.RemoveFile(len(filenames) - index - 1)
+        if len(self.filelist.GetFiles()) > 0:
             icon = wx.ICON_ERROR
-            text = 'Could not rename the following files:\n'
-            text += '\n'.join(mesg)
+            text = 'Could not rename some files:\n'
+            text += 'see files remained in the list'
         else:
             icon = wx.ICON_INFORMATION
             text = 'Processing complete.\nNo errors occured.'
         wx.MessageDialog(self, text, 'Report', wx.OK | icon).ShowModal()
-
-    def RenameFiles(self, filenames):
-        mesg = []
-        filenames.reverse()
-        for index, filename in enumerate(filenames):
-            dir, name = os.path.split(filename)
-            filetime = get_time(filename)
-            if filetime:
-                datestring = time.strftime(FMT, filetime)
-                newname = datestring + os.path.splitext(name)[1]
-                newfilename = os.path.join(dir, newname)
-                try:
-                    os.renames(filename, newfilename)
-                    self.filelist.RemoveFile(len(filenames) - index - 1)
-                except OSError:
-                    mesg.append(filename)
-            else:
-                mesg.append(filename)
-        return mesg
-
-
-def get_time(filename):
-    """Get file date, from metadata or file system."""
-    ext = os.path.splitext(filename)[1]
-    if ext.lower() in IMAGEFILES:
-        return get_exif_time(filename)
-    elif ext.lower() in VIDEOFILES:
-        return get_video_time(filename)
-    else:
-        return get_file_time(filename)
-
-
-def get_exif_time(filename):
-    """Get time from EXIF metadata."""
-    img = Image.open(filename)
-    exf = img._getexif()
-    if exf:
-        timestr = exf.get(DATEEXIFKEY, None)
-        if timestr:
-            return time.strptime(timestr, "%Y:%m:%d %H:%M:%S")
-    return get_file_time(filename)
-
-
-def get_video_time(filename):
-    try:
-        mdata = enzyme.parse(filename)
-    except enzyme.exceptions.NoParserError:
-        return get_file_time(filename)
-    tmepoch = mdata.timestamp
-    # here is the place where too old (erroneous) date is not supported
-    if tmepoch and tmepoch > 0:
-        return time.ctime(mdata.timestamp)
-    else:
-        return get_file_time(filename)
-
-
-def get_file_time(filename):
-    try:
-        mtime = os.path.getmtime(filename)
-    except OSError:
-        return None
-    return time.localtime(mtime)
-
 
 app = wx.App()
 frame = RenamerFrame(None, -1, sys.argv[1:])
