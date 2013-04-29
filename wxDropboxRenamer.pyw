@@ -14,7 +14,7 @@ Does not support video metadata earlier than Epoch time 0
 import sys
 import wx
 
-import dropboxrename
+import dropboximport
 
 
 class FileListDropTarget(wx.FileDropTarget):
@@ -140,7 +140,7 @@ class RenamerFrame(wx.Frame):
         filenames = self.filelist.GetFiles()
         filenames.reverse()
         for index, filename in enumerate(filenames):
-            status = dropboxrename.import_file(filename)
+            status = dropboximport.import_file(filename)
             if not status:
                 self.filelist.RemoveFile(len(filenames) - index - 1)
         if len(self.filelist.GetFiles()) > 0:

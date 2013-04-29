@@ -9,7 +9,7 @@ try:
 except:
     from PyQt4 import QtGui
 
-import dropboxrename
+import dropboximport
 
 
 class DropboxRenamerWindow(QtGui.QWidget):
@@ -87,7 +87,7 @@ class DropboxRenamerWindow(QtGui.QWidget):
         for index in range(self.filelist.count() - 1, -1, -1):
             filename = self.filelist.item(index).text()
             targetdir = self.dirname.text()
-            status = dropboxrename.import_file(filename, targetdir)
+            status = dropboximport.import_file(filename, targetdir)
             if not status:
                 self.filelist.takeItem(index)
         if self.filelist.count() > 0:
