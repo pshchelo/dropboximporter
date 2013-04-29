@@ -19,14 +19,14 @@ VIDEOFILES = ['.mp4', '.3gp', '.mov', '.mkv', '.webm', '.avi', '.ogm', '.ogv']
 IMAGEFILES = ['.jpg', '.jpeg']
 
 
-def import_file(filename, targetdir=None, fmt=FMT):
+def import_file(filename, targetdir='', fmt=FMT):
     """Rename file according to metadata date/time."""
     dir, name = os.path.split(filename)
     filetime = get_time(filename)
     if filetime:
         datestring = time.strftime(fmt, filetime)
         newname = datestring + os.path.splitext(name)[1]
-        if not targetdir:
+        if targetdir == '':
             targetdir = os.path.dirname(filename)
         newfilename = os.path.join(targetdir, newname)
         if os.path.exists(newfilename):
