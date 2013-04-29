@@ -69,7 +69,12 @@ class DropboxRenamerWindow(QtGui.QWidget):
         self.tzcbox.addItems(["UTC{:+0d}".format(x) for x in range(-12, 13)])
 
     def OnAddFiles(self):
-        pass
+        dlg = QtGui.QFileDialog(self)
+        dlg.setAcceptMode(QtGui.QFileDialog.AcceptOpen)
+        dlg.setFileMode(QtGui.QFileDialog.ExistingFiles)
+#        dlg.setDirectory(os.path.abspath())
+        if dlg.exec_():
+            self.filelist.addItems(dlg.selectedFiles())
 
     def OnRemoveFiles(self):
         pass
