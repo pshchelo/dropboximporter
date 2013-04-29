@@ -22,6 +22,8 @@ class DropboxRenamerWindow(QtGui.QWidget):
         delbtn = QtGui.QPushButton("Remove files", self)
 
         self.filelist = QtGui.QListWidget(self)
+        self.filelist.setSelectionMode(
+            QtGui.QAbstractItemView.ExtendedSelection)
 
         dirlabel = QtGui.QLabel("Import to ...", self)
         self.dirname = QtGui.QLineEdit(self)
@@ -77,7 +79,8 @@ class DropboxRenamerWindow(QtGui.QWidget):
             self.filelist.addItems(dlg.selectedFiles())
 
     def OnRemoveFiles(self):
-        pass
+        for item in self.filelist.selectedItems():
+            self.filelist.takeItem(self.filelist.row(item))
 
     def OnChooseDir(self):
         dlg = QtGui.QFileDialog(self)
