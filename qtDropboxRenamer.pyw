@@ -86,7 +86,8 @@ class DropboxRenamerWindow(QtGui.QWidget):
     def OnRenameFiles(self):
         for index in range(self.filelist.count() - 1, -1, -1):
             filename = self.filelist.item(index).text()
-            status = dropboxrename.rename(filename)
+            targetdir = self.dirname.text()
+            status = dropboxrename.import_file(filename, targetdir)
             if not status:
                 self.filelist.takeItem(index)
         if self.filelist.count() > 0:

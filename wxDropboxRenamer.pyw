@@ -140,7 +140,7 @@ class RenamerFrame(wx.Frame):
         filenames = self.filelist.GetFiles()
         filenames.reverse()
         for index, filename in enumerate(filenames):
-            status = dropboxrename.rename(filename)
+            status = dropboxrename.import_file(filename)
             if not status:
                 self.filelist.RemoveFile(len(filenames) - index - 1)
         if len(self.filelist.GetFiles()) > 0:

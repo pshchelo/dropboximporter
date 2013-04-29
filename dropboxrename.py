@@ -4,7 +4,8 @@
 """
 
 import time
-import os
+import os.path
+import shutil
 
 from PIL import Image
 from PIL import ExifTags
@@ -18,17 +19,21 @@ VIDEOFILES = ['.mp4', '.3gp', '.mov', '.mkv', '.webm', '.avi', '.ogm', '.ogv']
 IMAGEFILES = ['.jpg', '.jpeg']
 
 
-def rename(filename, fmt=FMT):
+def import_file(filename, targetdir=None, fmt=FMT):
     """Rename file according to metadata date/time."""
     dir, name = os.path.split(filename)
     filetime = get_time(filename)
     if filetime:
         datestring = time.strftime(fmt, filetime)
         newname = datestring + os.path.splitext(name)[1]
-        newfilename = os.path.join(dir, newname)
+        if not targetdir:
+            targetdir = os.path.dirname(filename)
+        newfilename = os.path.join(targetdir, newname)
+        if os.path.exists(newfilename):
+            return filename
         try:
-            os.renames(filename, newfilename)
-        except OSError:
+            shutil.copy2(filename, newfilename)
+        except IOError:
             return filename
         else:
             return None
