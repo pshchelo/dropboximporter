@@ -23,8 +23,8 @@ class DropboxRenamerWindow(QtGui.QWidget):
 
         self.filelist = QtGui.QListWidget(self)
 
-        dirlabel = QtGui.QLabel("Rename to dir", self)
-        self.dirname = QtGui.QTextEdit(self)
+        dirlabel = QtGui.QLabel("Import to ...", self)
+        self.dirname = QtGui.QLineEdit(self)
         dirbtn = QtGui.QPushButton('...', self)
         tzlabel = QtGui.QLabel("Timeshift", self)
         self.tzcbox = QtGui.QComboBox(self)
@@ -75,7 +75,13 @@ class DropboxRenamerWindow(QtGui.QWidget):
         pass
 
     def OnChooseDir(self):
-        pass
+        dlg = QtGui.QFileDialog(self)
+        dlg.setAcceptMode(QtGui.QFileDialog.AcceptOpen)
+        dlg.setFileMode(QtGui.QFileDialog.Directory)
+        dlg.setOption(QtGui.QFileDialog.ShowDirsOnly, True)
+        dlg.setDirectory(os.path.abspath(self.dirname.text()))
+        if dlg.exec_():
+            self.dirname.setText(dlg.selectedFiles()[0])
 
     def OnRenameFiles(self):
         for index in range(self.filelist.count() - 1, -1, -1):
