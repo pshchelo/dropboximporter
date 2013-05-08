@@ -12,6 +12,33 @@ except:
 import dropboximport
 
 
+class FileListWithDrop(QtGui.QListWidget):
+    """Extend ListWidget with Drop capability."""
+    def __init__(self, parent):
+        super(FileListWithDrop, self).__init__(parent)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls:
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls:
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.accept()
+            for url in event.mimeData().urls():
+                self.addItem(url.toLocalFile())
+        else:
+            event.ignore()
+
+
 class DropboxRenamerWindow(QtGui.QWidget):
     """Main window for the application"""
 
@@ -21,7 +48,7 @@ class DropboxRenamerWindow(QtGui.QWidget):
         addbtn = QtGui.QPushButton("Add files", self)
         delbtn = QtGui.QPushButton("Remove files", self)
 
-        self.filelist = QtGui.QListWidget(self)
+        self.filelist = FileListWithDrop(self)
         self.filelist.setSelectionMode(
             QtGui.QAbstractItemView.ExtendedSelection)
 
@@ -33,10 +60,10 @@ class DropboxRenamerWindow(QtGui.QWidget):
         importbtn = QtGui.QPushButton("Import", self)
 
         # Connect signals
-        addbtn.clicked.connect(self.OnAddFiles)
-        delbtn.clicked.connect(self.OnRemoveFiles)
-        dirbtn.clicked.connect(self.OnChooseDir)
-        importbtn.clicked.connect(self.OnRenameFiles)
+        addbtn.clicked.connect(self.addFiles)
+        delbtn.clicked.connect(self.removeFiles)
+        dirbtn.clicked.connect(self.chooseDir)
+        importbtn.clicked.connect(self.renameFiles)
 
         # Init widgets
         self.init_gui_values()
@@ -70,7 +97,7 @@ class DropboxRenamerWindow(QtGui.QWidget):
         self.dirname.setText(os.path.expanduser("~/Dropbox/Camera Uploads"))
         self.tzcbox.addItems(["UTC{:+0d}".format(x) for x in range(-12, 13)])
 
-    def OnAddFiles(self):
+    def addFiles(self):
         dlg = QtGui.QFileDialog(self)
         dlg.setAcceptMode(QtGui.QFileDialog.AcceptOpen)
         dlg.setFileMode(QtGui.QFileDialog.ExistingFiles)
@@ -78,11 +105,11 @@ class DropboxRenamerWindow(QtGui.QWidget):
         if dlg.exec_():
             self.filelist.addItems(dlg.selectedFiles())
 
-    def OnRemoveFiles(self):
+    def removeFiles(self):
         for item in self.filelist.selectedItems():
             self.filelist.takeItem(self.filelist.row(item))
 
-    def OnChooseDir(self):
+    def chooseDir(self):
         dlg = QtGui.QFileDialog(self)
         dlg.setAcceptMode(QtGui.QFileDialog.AcceptOpen)
         dlg.setFileMode(QtGui.QFileDialog.Directory)
@@ -91,7 +118,7 @@ class DropboxRenamerWindow(QtGui.QWidget):
         if dlg.exec_():
             self.dirname.setText(dlg.selectedFiles()[0])
 
-    def OnRenameFiles(self):
+    def renameFiles(self):
         for index in range(self.filelist.count() - 1, -1, -1):
             filename = self.filelist.item(index).text()
             targetdir = self.dirname.text()

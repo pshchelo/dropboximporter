@@ -2,7 +2,6 @@
 """Rename files like Dropbox Camera upload does
 
 """
-#TODO: drag and drop functionality for list of files
 #TODO: time shift for video files, maybe optional for images too
 import time
 import os.path
