@@ -2,7 +2,8 @@
 """Rename files like Dropbox Camera upload does
 
 """
-
+#TODO: drag and drop functionality for list of files
+#TODO: time shift for video files, maybe optional for images too
 import time
 import os.path
 import shutil
@@ -71,7 +72,7 @@ def get_video_time(filename):
     tmepoch = mdata.timestamp
     # here is the place where too old (erroneous) date is not supported
     if tmepoch and tmepoch > 0:
-        return time.ctime(mdata.timestamp)
+        return time.localtime(tmepoch)
     else:
         return get_file_time(filename)
 
