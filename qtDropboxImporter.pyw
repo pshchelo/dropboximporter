@@ -2,8 +2,10 @@
 """Dropbox CameraUpload renamer
 
 """
+from __future__ import division, print_function
 import os
 import sys
+
 try:
     from PySide import QtGui
 except:
@@ -51,12 +53,20 @@ class DropboxRenamerWindow(QtGui.QWidget):
         self.filelist = FileListWithDrop(self)
         self.filelist.setSelectionMode(
             QtGui.QAbstractItemView.ExtendedSelection)
-
-        dirlabel = QtGui.QLabel("Import to ...", self)
+        
+        filegroupbox = QtGui.QGroupBox("Import files", self)
+        self.makedirscb = QtGui.QCheckBox("Put in folders", filegroupbox)
+        self.renfilescb = QtGui.QCheckBox("Rename files", filegroupbox)
+        dirlabel = QtGui.QLabel("Import to ...", filegroupbox)
         self.dirname = QtGui.QLineEdit(self)
         dirbtn = QtGui.QPushButton('...', self)
-        tzlabel = QtGui.QLabel("Timeshift", self)
-        self.tzcbox = QtGui.QComboBox(self)
+        
+        shiftgroupbox = QtGui.QGroupBox("Timeshift", self)
+        self.shiftimgcb = QtGui.QCheckBox("for images", shiftgroupbox)
+        self.shiftvidcb = QtGui.QCheckBox("for videos", shiftgroupbox)
+        shiftlabel = QtGui.QLabel("Shift time by", shiftgroupbox)
+        self.shifttime = QtGui.QSpinBox(shiftgroupbox)
+        
         importbtn = QtGui.QPushButton("Import", self)
 
         # Connect signals
@@ -70,21 +80,46 @@ class DropboxRenamerWindow(QtGui.QWidget):
 
         # Do layout
         mainbox = QtGui.QVBoxLayout()
+        
         filesbox = QtGui.QHBoxLayout()
-        dirbox = QtGui.QHBoxLayout()
-        timebox = QtGui.QHBoxLayout()
-
         filesbox.addWidget(addbtn)
         filesbox.addWidget(delbtn)
         mainbox.addLayout(filesbox)
+
         mainbox.addWidget(self.filelist)
+
+        filebox = QtGui.QVBoxLayout()
+        
+        filecbbox = QtGui.QHBoxLayout()        
+        filecbbox.addWidget(self.makedirscb)
+        filecbbox.addWidget(self.renfilescb)
+        filebox.addLayout(filecbbox)
+        
+        dirbox = QtGui.QHBoxLayout()        
         dirbox.addWidget(dirlabel)
         dirbox.addWidget(self.dirname)
         dirbox.addWidget(dirbtn)
-        mainbox.addLayout(dirbox)
-        timebox.addWidget(tzlabel)
-        timebox.addWidget(self.tzcbox)
-        mainbox.addLayout(timebox)
+
+        filebox.addLayout(dirbox)
+        filegroupbox.setLayout(filebox)
+
+        mainbox.addWidget(filegroupbox)
+
+
+        shiftbox = QtGui.QVBoxLayout()
+        shiftcbbox = QtGui.QHBoxLayout()
+        shiftcbbox.addWidget(self.shiftimgcb)
+        shiftcbbox.addWidget(self.shiftvidcb)
+        shiftbox.addLayout(shiftcbbox)
+        
+        timebox = QtGui.QHBoxLayout()
+        timebox.addWidget(shiftlabel)
+        timebox.addWidget(self.shifttime)
+        shiftbox.addLayout(timebox)
+        
+        shiftgroupbox.setLayout(shiftbox)
+        
+        mainbox.addWidget(shiftgroupbox)
         mainbox.addWidget(importbtn)
 
         self.setLayout(mainbox)
@@ -95,7 +130,13 @@ class DropboxRenamerWindow(QtGui.QWidget):
         if len(sys.argv) > 1:
             self.filelist.addItems(sys.argv[1:])
         self.dirname.setText(os.path.expanduser("~/Dropbox/Camera Uploads"))
-        self.tzcbox.addItems(["UTC{:+0d}".format(x) for x in range(-12, 13)])
+        self.shifttime.setRange(-24 * 60, 24 * 60)
+        self.shifttime.setValue(0)
+        self.shifttime.setSuffix(" min")
+        self.shiftvidcb.setChecked(True)
+        self.shiftimgcb.setChecked(False)
+        self.makedirscb.setChecked(False)
+        self.renfilescb.setChecked(True)
 
     def addFiles(self):
         dlg = QtGui.QFileDialog(self)
@@ -122,7 +163,17 @@ class DropboxRenamerWindow(QtGui.QWidget):
         for index in range(self.filelist.count() - 1, -1, -1):
             filename = self.filelist.item(index).text()
             targetdir = self.dirname.text()
-            status = dropboximport.import_file(filename, targetdir)
+            shift = 60 * self.shifttime.value()
+            shift_img = self.shiftimgcb.isChecked()
+            shift_vid = self.shiftvidcb.isChecked()
+            sort_in_dir = self.makedirscb.isChecked()
+            rename = self.renfilescb.isChecked()
+            status = dropboximport.import_file(filename, targetdir,
+                                               shift_seconds=shift,
+                                               shift_img=shift_img,
+                                               shift_vid=shift_vid,
+                                               sort_in_dir=sort_in_dir,
+                                               rename=rename)
             if not status:
                 self.filelist.takeItem(index)
         if self.filelist.count() > 0:
